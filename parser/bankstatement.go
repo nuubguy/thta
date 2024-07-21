@@ -2,6 +2,7 @@ package parser
 
 import (
 	"strconv"
+	"thta/constant"
 	"time"
 )
 
@@ -22,7 +23,7 @@ func (bp *BankStatementParser) Parse(records [][]string) error {
 		if err != nil {
 			return err
 		}
-		date, err := time.Parse("2006-01-02", record[2])
+		date, err := time.Parse(constant.DateFormat, record[2])
 		if err != nil {
 			return err
 		}

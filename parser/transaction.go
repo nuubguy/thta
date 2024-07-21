@@ -2,6 +2,7 @@ package parser
 
 import (
 	"strconv"
+	"thta/constant"
 	"time"
 )
 
@@ -23,11 +24,11 @@ func (tp *TransactionParser) Parse(records [][]string) error {
 		if err != nil {
 			return err
 		}
-		transactionTime, err := time.Parse("2006-01-02 15:04:05", record[3])
+		transactionTime, err := time.Parse(constant.DateTimeFormat, record[3])
 		if err != nil {
 			return err
 		}
-		monthYear := transactionTime.Format("2006-01")
+		monthYear := transactionTime.Format(constant.DateMonthFormat)
 		tp.Transactions = append(tp.Transactions, Transaction{
 			TrxID:           record[0],
 			Amount:          amount,

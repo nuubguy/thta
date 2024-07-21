@@ -1,5 +1,9 @@
 package parser
 
+import (
+	"thta/constant"
+)
+
 type UnifiedTransaction struct {
 	ID         string
 	Amount     int64
@@ -18,7 +22,7 @@ func ConvertSystemTransactions(transactions []Transaction, fileSource string) ([
 		unifiedTransactions = append(unifiedTransactions, UnifiedTransaction{
 			ID:         transaction.TrxID,
 			Amount:     amount,
-			Date:       transaction.TransactionTime.Format("2006-01-02"),
+			Date:       transaction.TransactionTime.Format(constant.DateFormat),
 			Source:     "System",
 			FileSource: fileSource,
 		})
@@ -32,7 +36,7 @@ func ConvertBankTransactions(statements []BankStatement, fileSource string) ([]U
 		unifiedTransactions = append(unifiedTransactions, UnifiedTransaction{
 			ID:         statement.UniqueIdentifier,
 			Amount:     statement.Amount,
-			Date:       statement.Date.Format("2006-01-02"),
+			Date:       statement.Date.Format(constant.DateFormat),
 			Source:     "Bank",
 			FileSource: fileSource,
 		})

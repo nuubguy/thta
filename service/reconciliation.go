@@ -3,6 +3,7 @@ package service
 import (
 	"fmt"
 	"sync"
+	"thta/constant"
 	"thta/parser"
 	"thta/utils"
 	"time"
@@ -82,7 +83,7 @@ func (s *ReconciliationService) initializeMaps(systemTransactions, bankTransacti
 	bankMap := make(map[string]parser.UnifiedTransaction)
 
 	for _, trx := range systemTransactions {
-		trxDate, _ := time.Parse("2006-01-02", trx.Date)
+		trxDate, _ := time.Parse(constant.DateFormat, trx.Date)
 		if trxDate.After(startTime) && trxDate.Before(endTime) {
 			key := fmt.Sprintf(DateAmountFormat, trx.Date, trx.Amount)
 			systemMap[key] = trx
@@ -90,7 +91,7 @@ func (s *ReconciliationService) initializeMaps(systemTransactions, bankTransacti
 	}
 
 	for _, trx := range bankTransactions {
-		trxDate, _ := time.Parse("2006-01-02", trx.Date)
+		trxDate, _ := time.Parse(constant.DateFormat, trx.Date)
 		if trxDate.After(startTime) && trxDate.Before(endTime) {
 			key := fmt.Sprintf(DateAmountFormat, trx.Date, trx.Amount)
 			bankMap[key] = trx
