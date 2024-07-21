@@ -5,13 +5,14 @@ import (
 )
 
 type UnifiedTransaction struct {
-	ID     string
-	Amount int64
-	Date   string
-	Source string // "System" or "Bank"
+	ID         string
+	Amount     int64
+	Date       string
+	Source     string // "System" or "Bank"
+	FileSource string // The source file path or name
 }
 
-func ConvertSystemTransactions(transactions []parser.Transaction) ([]UnifiedTransaction, error) {
+func ConvertSystemTransactions(transactions []parser.Transaction, fileSource string) ([]UnifiedTransaction, error) {
 	var unifiedTransactions []UnifiedTransaction
 	for _, transaction := range transactions {
 		amount := transaction.Amount
@@ -19,23 +20,25 @@ func ConvertSystemTransactions(transactions []parser.Transaction) ([]UnifiedTran
 			amount = -amount
 		}
 		unifiedTransactions = append(unifiedTransactions, UnifiedTransaction{
-			ID:     transaction.TrxID,
-			Amount: amount,
-			Date:   transaction.TransactionTime.Format("2006-01-02"),
-			Source: "System",
+			ID:         transaction.TrxID,
+			Amount:     amount,
+			Date:       transaction.TransactionTime.Format("2006-01-02"),
+			Source:     "System",
+			FileSource: fileSource,
 		})
 	}
 	return unifiedTransactions, nil
 }
 
-func ConvertBankTransactions(statements []parser.BankStatement) ([]UnifiedTransaction, error) {
+func ConvertBankTransactions(statements []parser.BankStatement, fileSource string) ([]UnifiedTransaction, error) {
 	var unifiedTransactions []UnifiedTransaction
 	for _, statement := range statements {
 		unifiedTransactions = append(unifiedTransactions, UnifiedTransaction{
-			ID:     statement.UniqueIdentifier,
-			Amount: statement.Amount,
-			Date:   statement.Date.Format("2006-01-02"),
-			Source: "Bank",
+			ID:         statement.UniqueIdentifier,
+			Amount:     statement.Amount,
+			Date:       statement.Date.Format("2006-01-02"),
+			Source:     "Bank",
+			FileSource: fileSource,
 		})
 	}
 	return unifiedTransactions, nil
