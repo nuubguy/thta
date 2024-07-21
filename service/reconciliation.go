@@ -3,7 +3,7 @@ package service
 import (
 	"fmt"
 	"sync"
-	"thta/model"
+	"thta/parser"
 	"thta/utils"
 )
 
@@ -13,8 +13,8 @@ const (
 )
 
 type Task struct {
-	SysTrx  model.UnifiedTransaction
-	BankMap map[string]model.UnifiedTransaction
+	SysTrx  parser.UnifiedTransaction
+	BankMap map[string]parser.UnifiedTransaction
 }
 
 type ReconciliationService struct{}
@@ -23,14 +23,14 @@ func NewReconciliationService() *ReconciliationService {
 	return &ReconciliationService{}
 }
 
-func (s *ReconciliationService) Reconcile(systemTransactions, bankTransactions []model.UnifiedTransaction) {
+func (s *ReconciliationService) Reconcile(systemTransactions, bankTransactions []parser.UnifiedTransaction) {
 	matchedCount, totalDiscrepancy, systemMap, bankMap := s.initializeMaps(systemTransactions, bankTransactions)
 
 	discrepancyChan := make(chan int64)
-	taskChan := make(chan model.UnifiedTransaction, len(systemMap))
+	taskChan := make(chan parser.UnifiedTransaction, len(systemMap))
 	var wg sync.WaitGroup
 
-	worker := func(taskChan <-chan model.UnifiedTransaction, discrepancyChan chan<- int64, wg *sync.WaitGroup) {
+	worker := func(taskChan <-chan parser.UnifiedTransaction, discrepancyChan chan<- int64, wg *sync.WaitGroup) {
 		defer wg.Done()
 		localDiscrepancy := int64(0)
 
@@ -73,12 +73,12 @@ func (s *ReconciliationService) Reconcile(systemTransactions, bankTransactions [
 	s.printResults(matchedCount, totalDiscrepancy, systemMap, bankMap)
 }
 
-func (s *ReconciliationService) initializeMaps(systemTransactions, bankTransactions []model.UnifiedTransaction) (int, int64, map[string]model.UnifiedTransaction, map[string]model.UnifiedTransaction) {
+func (s *ReconciliationService) initializeMaps(systemTransactions, bankTransactions []parser.UnifiedTransaction) (int, int64, map[string]parser.UnifiedTransaction, map[string]parser.UnifiedTransaction) {
 	matchedCount := 0
 	totalDiscrepancy := int64(0)
 
-	systemMap := make(map[string]model.UnifiedTransaction)
-	bankMap := make(map[string]model.UnifiedTransaction)
+	systemMap := make(map[string]parser.UnifiedTransaction)
+	bankMap := make(map[string]parser.UnifiedTransaction)
 
 	for _, trx := range systemTransactions {
 		key := fmt.Sprintf(DateAmountFormat, trx.Date, trx.Amount)
@@ -101,7 +101,7 @@ func (s *ReconciliationService) initializeMaps(systemTransactions, bankTransacti
 	return matchedCount, totalDiscrepancy, systemMap, bankMap
 }
 
-func (s *ReconciliationService) printResults(matchedCount int, totalDiscrepancy int64, systemMap, bankMap map[string]model.UnifiedTransaction) {
+func (s *ReconciliationService) printResults(matchedCount int, totalDiscrepancy int64, systemMap, bankMap map[string]parser.UnifiedTransaction) {
 	fmt.Printf("Total number of matched transactions: %d\n", matchedCount)
 	fmt.Printf("Total discrepancies (sum of absolute differences in amount): %d\n", totalDiscrepancy)
 
@@ -110,7 +110,7 @@ func (s *ReconciliationService) printResults(matchedCount int, totalDiscrepancy 
 		fmt.Printf("%+v\n", sysTrx)
 	}
 
-	unmatchedBankTransactionsByFile := make(map[string][]model.UnifiedTransaction)
+	unmatchedBankTransactionsByFile := make(map[string][]parser.UnifiedTransaction)
 	for _, bankTrx := range bankMap {
 		unmatchedBankTransactionsByFile[bankTrx.FileSource] = append(unmatchedBankTransactionsByFile[bankTrx.FileSource], bankTrx)
 	}

@@ -1,8 +1,4 @@
-package model
-
-import (
-	"thta/parser"
-)
+package parser
 
 type UnifiedTransaction struct {
 	ID         string
@@ -12,7 +8,7 @@ type UnifiedTransaction struct {
 	FileSource string // The source file path or name
 }
 
-func ConvertSystemTransactions(transactions []parser.Transaction, fileSource string) ([]UnifiedTransaction, error) {
+func ConvertSystemTransactions(transactions []Transaction, fileSource string) ([]UnifiedTransaction, error) {
 	var unifiedTransactions []UnifiedTransaction
 	for _, transaction := range transactions {
 		amount := transaction.Amount
@@ -30,7 +26,7 @@ func ConvertSystemTransactions(transactions []parser.Transaction, fileSource str
 	return unifiedTransactions, nil
 }
 
-func ConvertBankTransactions(statements []parser.BankStatement, fileSource string) ([]UnifiedTransaction, error) {
+func ConvertBankTransactions(statements []BankStatement, fileSource string) ([]UnifiedTransaction, error) {
 	var unifiedTransactions []UnifiedTransaction
 	for _, statement := range statements {
 		unifiedTransactions = append(unifiedTransactions, UnifiedTransaction{
