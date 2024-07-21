@@ -7,8 +7,9 @@ import (
 
 type BankStatement struct {
 	UniqueIdentifier string
-	Amount           float64
+	Amount           int64
 	Date             time.Time
+	MonthYear        string // Added field for grouping by month
 }
 
 type BankStatementParser struct {
@@ -17,7 +18,7 @@ type BankStatementParser struct {
 
 func (bp *BankStatementParser) Parse(records [][]string) error {
 	for _, record := range records[1:] {
-		amount, err := strconv.ParseFloat(record[1], 64)
+		amount, err := strconv.ParseInt(record[1], 10, 64)
 		if err != nil {
 			return err
 		}
@@ -25,10 +26,12 @@ func (bp *BankStatementParser) Parse(records [][]string) error {
 		if err != nil {
 			return err
 		}
+		monthYear := date.Format("2006-01")
 		bp.BankStatements = append(bp.BankStatements, BankStatement{
 			UniqueIdentifier: record[0],
 			Amount:           amount,
 			Date:             date,
+			MonthYear:        monthYear,
 		})
 	}
 	return nil
