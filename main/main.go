@@ -1,87 +1,30 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"path/filepath"
+	"sync"
 	"thta/model"
 	"thta/parser"
+	"thta/service"
 )
 
-func reconcileTransactions(systemTransactions []model.UnifiedTransaction, bankTransactions []model.UnifiedTransaction) {
-	matchedCount := 0
-	totalDiscrepancy := int64(0)
+func parseAndConvertBankFiles(files []string, bankTransactionsChan chan<- []model.UnifiedTransaction, wg *sync.WaitGroup) {
+	defer wg.Done()
 
-	// Maps to track unmatched transactions
-	systemMap := make(map[string]model.UnifiedTransaction)
-	bankMap := make(map[string]model.UnifiedTransaction)
-
-	// Populate system transactions map
-	for _, trx := range systemTransactions {
-		key := fmt.Sprintf("%s_%d", trx.Date, trx.Amount)
-		systemMap[key] = trx
-	}
-
-	// Populate bank transactions map
-	for _, trx := range bankTransactions {
-		key := fmt.Sprintf("%s_%d", trx.Date, trx.Amount)
-		bankMap[key] = trx
-	}
-
-	// Identify matched transactions
-	for key, _ := range systemMap {
-		if _, exists := bankMap[key]; exists {
-			matchedCount++
-			delete(systemMap, key)
-			delete(bankMap, key)
+	for _, path := range files {
+		bankStatementParser := &parser.BankStatementParser{}
+		err := parser.ParseCSV(path, bankStatementParser)
+		if err != nil {
+			log.Fatalf("Error parsing bank statement CSV: %v", err)
 		}
-	}
-
-	// Calculate discrepancies and remove processed entries
-	for date, sysTrx := range systemMap {
-		for bankKey, bankTrx := range bankMap {
-			if sysTrx.Date == bankTrx.Date {
-				discrepancy := abs(sysTrx.Amount - bankTrx.Amount)
-				totalDiscrepancy += discrepancy
-				delete(systemMap, date)
-				delete(bankMap, bankKey)
-				break
-			}
+		transactions, err := model.ConvertBankTransactions(bankStatementParser.BankStatements, path)
+		if err != nil {
+			log.Fatalf("Error converting bank transactions: %v", err)
 		}
+		bankTransactionsChan <- transactions
 	}
-
-	// Print the number of matched transactions
-	fmt.Printf("Total discrepancies: %d\n", totalDiscrepancy)
-	fmt.Printf("Total number of matched transactions: %d\n", matchedCount)
-	// Identify unmatched system transactions
-	fmt.Printf("\nUnmatched System Transactions: %d\n", len(systemMap))
-
-	for _, sysTrx := range systemMap {
-		fmt.Printf("%+v\n", sysTrx)
-	}
-
-	// Group unmatched bank transactions by FileSource
-	unmatchedBankTransactionsByFile := make(map[string][]model.UnifiedTransaction)
-	for _, bankTrx := range bankMap {
-		unmatchedBankTransactionsByFile[bankTrx.FileSource] = append(unmatchedBankTransactionsByFile[bankTrx.FileSource], bankTrx)
-	}
-
-	// Print the number of unmatched bank transactions grouped by FileSource
-	fmt.Printf("\nUnmatched Bank Transactions: %d\n", len(bankMap))
-	for fileSource, transactions := range unmatchedBankTransactionsByFile {
-		fmt.Printf("Source File: %s, Unmatched Transactions: %d\n", fileSource, len(transactions))
-		for _, bankTrx := range transactions {
-			fmt.Printf("%+v\n", bankTrx)
-		}
-	}
-}
-
-func abs(x int64) int64 {
-	if x < 0 {
-		return -x
-	}
-	return x
 }
 
 func main() {
@@ -94,29 +37,18 @@ func main() {
 		log.Fatalf("Error parsing system transactions CSV: %v", err)
 	}
 
-	var bankTransactions []model.UnifiedTransaction
-
-	// Convert system transactions
 	systemTransactions, err := model.ConvertSystemTransactions(systemTransactionParser.Transactions, systemFilePath)
 	if err != nil {
 		log.Fatalf("Error converting system transactions: %v", err)
 	}
 
+	var bankFiles []string
 	err = filepath.Walk(bankDirPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 		if !info.IsDir() && filepath.Ext(path) == ".csv" {
-			bankStatementParser := &parser.BankStatementParser{}
-			err = parser.ParseCSV(path, bankStatementParser)
-			if err != nil {
-				log.Fatalf("Error parsing bank statement CSV: %v", err)
-			}
-			transactions, err := model.ConvertBankTransactions(bankStatementParser.BankStatements, path)
-			if err != nil {
-				log.Fatalf("Error converting bank transactions: %v", err)
-			}
-			bankTransactions = append(bankTransactions, transactions...)
+			bankFiles = append(bankFiles, path)
 		}
 		return nil
 	})
@@ -124,5 +56,31 @@ func main() {
 		log.Fatalf("Error reading bank statement files: %v", err)
 	}
 
-	reconcileTransactions(systemTransactions, bankTransactions)
+	bankTransactionsChan := make(chan []model.UnifiedTransaction)
+	var wg sync.WaitGroup
+
+	numWorkers := 4
+	fileBatches := len(bankFiles) / numWorkers
+	for i := 0; i < numWorkers; i++ {
+		start := i * fileBatches
+		end := (i + 1) * fileBatches
+		if i == numWorkers-1 {
+			end = len(bankFiles)
+		}
+		wg.Add(1)
+		go parseAndConvertBankFiles(bankFiles[start:end], bankTransactionsChan, &wg)
+	}
+
+	go func() {
+		wg.Wait()
+		close(bankTransactionsChan)
+	}()
+
+	var bankTransactions []model.UnifiedTransaction
+	for transactions := range bankTransactionsChan {
+		bankTransactions = append(bankTransactions, transactions...)
+	}
+
+	reconciliationService := service.NewReconciliationService()
+	reconciliationService.Reconcile(systemTransactions, bankTransactions)
 }
