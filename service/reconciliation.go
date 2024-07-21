@@ -5,11 +5,12 @@ import (
 	"sync"
 	"thta/parser"
 	"thta/utils"
+	"time"
 )
 
 const (
 	DateAmountFormat = "%s_%d"
-	NumWorkers       = 4
+	NumOfWorker      = 4
 )
 
 type Task struct {
@@ -23,8 +24,8 @@ func NewReconciliationService() *ReconciliationService {
 	return &ReconciliationService{}
 }
 
-func (s *ReconciliationService) Reconcile(systemTransactions, bankTransactions []parser.UnifiedTransaction) {
-	matchedCount, totalDiscrepancy, systemMap, bankMap := s.initializeMaps(systemTransactions, bankTransactions)
+func (s *ReconciliationService) Reconcile(systemTransactions, bankTransactions []parser.UnifiedTransaction, startTime, endTime time.Time) {
+	matchedCount, totalDiscrepancy, systemMap, bankMap := s.initializeMaps(systemTransactions, bankTransactions, startTime, endTime)
 
 	discrepancyChan := make(chan int64)
 	taskChan := make(chan parser.UnifiedTransaction, len(systemMap))
@@ -49,7 +50,7 @@ func (s *ReconciliationService) Reconcile(systemTransactions, bankTransactions [
 		discrepancyChan <- localDiscrepancy
 	}
 
-	for i := 0; i < NumWorkers; i++ {
+	for i := 0; i < NumOfWorker; i++ {
 		wg.Add(1)
 		go worker(taskChan, discrepancyChan, &wg)
 	}
@@ -73,7 +74,7 @@ func (s *ReconciliationService) Reconcile(systemTransactions, bankTransactions [
 	s.printResults(matchedCount, totalDiscrepancy, systemMap, bankMap)
 }
 
-func (s *ReconciliationService) initializeMaps(systemTransactions, bankTransactions []parser.UnifiedTransaction) (int, int64, map[string]parser.UnifiedTransaction, map[string]parser.UnifiedTransaction) {
+func (s *ReconciliationService) initializeMaps(systemTransactions, bankTransactions []parser.UnifiedTransaction, startTime, endTime time.Time) (int, int64, map[string]parser.UnifiedTransaction, map[string]parser.UnifiedTransaction) {
 	matchedCount := 0
 	totalDiscrepancy := int64(0)
 
@@ -81,13 +82,19 @@ func (s *ReconciliationService) initializeMaps(systemTransactions, bankTransacti
 	bankMap := make(map[string]parser.UnifiedTransaction)
 
 	for _, trx := range systemTransactions {
-		key := fmt.Sprintf(DateAmountFormat, trx.Date, trx.Amount)
-		systemMap[key] = trx
+		trxDate, _ := time.Parse("2006-01-02", trx.Date)
+		if trxDate.After(startTime) && trxDate.Before(endTime) {
+			key := fmt.Sprintf(DateAmountFormat, trx.Date, trx.Amount)
+			systemMap[key] = trx
+		}
 	}
 
 	for _, trx := range bankTransactions {
-		key := fmt.Sprintf(DateAmountFormat, trx.Date, trx.Amount)
-		bankMap[key] = trx
+		trxDate, _ := time.Parse("2006-01-02", trx.Date)
+		if trxDate.After(startTime) && trxDate.Before(endTime) {
+			key := fmt.Sprintf(DateAmountFormat, trx.Date, trx.Amount)
+			bankMap[key] = trx
+		}
 	}
 
 	for key := range systemMap {
